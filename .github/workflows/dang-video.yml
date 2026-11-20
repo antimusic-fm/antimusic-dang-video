@@ -1,0 +1,46 @@
+name: Dang video theo lich
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"   # 4 lần/giờ (repo công khai: phút chạy miễn phí không giới hạn); GitHub có thể trễ vài phút
+  workflow_dispatch: {}       # nút chạy tay trong tab Actions
+concurrency:
+  group: dang-video           # không cho 2 lượt chạy chồng nhau (tránh đăng trùng)
+  cancel-in-progress: false
+jobs:
+  dang:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Co video den gio khong
+        id: kiem
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_HOST: ${{ vars.IG_HOST }}
+          YT_CHE_DO: ${{ vars.YT_CHE_DO }}
+          BAO_WEBHOOK: ${{ secrets.BAO_WEBHOOK }}
+        run: |
+          python3 dang_video.py --xem --json > xem.json || true
+          cat xem.json
+          if python3 -c "import json,sys; sys.exit(0 if json.load(open('xem.json')) else 1)"; then echo "co=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Cai ffprobe
+        if: steps.kiem.outputs.co == '1'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Dang
+        if: steps.kiem.outputs.co == '1'
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_HOST: ${{ vars.IG_HOST }}
+          YT_CHE_DO: ${{ vars.YT_CHE_DO }}
+          BAO_WEBHOOK: ${{ secrets.BAO_WEBHOOK }}
+        run: python3 dang_video.py
